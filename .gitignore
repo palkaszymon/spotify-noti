@@ -3,5 +3,5 @@
 list.json
 todo
 idea_code_storage.py
-playlists/
 __pycache__
+json/

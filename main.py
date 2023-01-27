@@ -27,6 +27,3 @@ class Playlist(Share):
         # will be database (maybe neo4j) for now in file
         with open(f'playlists/{self.id}.json', 'w') as f:
             json.dump(self.get_playlist_items(), f)
-
-for id in playlist_ids:
-    Playlist(id).save_playlist_songs()
