@@ -4,16 +4,30 @@ from requests import get, post
 from os import getenv
 from neo4j import GraphDatabase
 import time
+import boto3
+from botocore.exceptions import ClientError
 
-client_id= ''
-client_secret= ''
-uri = ''
-user = ''
-password = ''
+def get_secret(secret_name):
+    region_name = "eu-central-1"
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        raise e
+    return json.loads(get_secret_value_response['SecretString'])
 
-playlist_ids = ['37i9dQZF1DWY7IeIP1cdjF', '37i9dQZF1DWX5ZOsG2Ogi1', '37i9dQZF1EQmg9rwHdCwFW', '37i9dQZF1DX10zKzsJ2jva']
+SPOTIFY_CREDS, NEO4J_CREDS = get_secret('spotify-api-creds'), get_secret('neo4j-creds')
+client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SECRET']
+uri, user, password = NEO4J_CREDS['NEO4J_URI'], NEO4J_CREDS['NEO4J_USERNAME'], NEO4J_CREDS['NEO4J_PASSWORD']
 
 def lambda_handler(event, context):
+    playlist_ids = ['37i9dQZF1DWY7IeIP1cdjF', '37i9dQZF1DWX5ZOsG2Ogi1', '37i9dQZF1EQmg9rwHdCwFW', '37i9dQZF1DX10zKzsJ2jva']
     msg = ''
     times = []
     params = event.get('queryStringParameters')
