@@ -32,22 +32,22 @@ def lambda_handler(event, context):
     mode = params.get('mode')
     if mode == '1':
         msg = '1'
-        all_new_tracks = []
+        new = []
         with GraphDatabase.driver(uri, auth=(user, password)) as driver:
             with driver.session() as session:
                 for playlist in playlist_ids:
                     current = Playlist(playlist)
-                    before = [tuple(song.values()) for song in session.execute_read(current.get_tracks)]
                     for track in current.get_playlist_items():
                         try:
-                            session.execute_write(current.create_track, track)
-                            print(f"Track {track['track_name']} write success!")
+                            tx = session.execute_write(current.create_track, track)
+                            check = tx[1].counters.nodes_created
+                            if check != 0:
+                                new.append(track)
+                                print(f"Track {track['track_name']} write success!")
+                            else:
+                                print(f"Track {track['track_name']} already exists!")
                         except Exception as e:
-                            raise e
-                    new = [item for item in [tuple(song.values()) for song in session.execute_read(current.get_tracks)] if item not in before]
-                    if new != []:
-                        all_new_tracks.append(new)
-        print(all_new_tracks)
+                            print(e)
     elif mode == "2":
         msg = '2'
     return {
@@ -123,7 +123,8 @@ MERGE (t)-[:APPEARS_ON]->(p)
 """,
     track_id=track['track_id'], track_name=track['track_name'], artist_list=track['artists'], playlist_id=self.id
     )
-        return result
+        summary = result.consume()
+        return result, summary
     
     def get_tracks(self, tx):
         result = tx.run("""
