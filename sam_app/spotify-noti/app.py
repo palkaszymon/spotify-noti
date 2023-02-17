@@ -1,7 +1,6 @@
 import json
 import base64
 from requests import get, post
-from os import getenv
 from neo4j import GraphDatabase
 import time
 import boto3
@@ -27,36 +26,34 @@ client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SEC
 uri, user, password = NEO4J_CREDS['NEO4J_URI'], NEO4J_CREDS['NEO4J_USERNAME'], NEO4J_CREDS['NEO4J_PASSWORD']
 
 def lambda_handler(event, context):
-    playlist_ids = ['37i9dQZF1DWY7IeIP1cdjF', '37i9dQZF1DWX5ZOsG2Ogi1', '37i9dQZF1EQmg9rwHdCwFW', '37i9dQZF1DX10zKzsJ2jva']
+    playlist_ids = ['6jb23MIDO80GqVaNIsyUfO', '5037GRVTAdYiQvGRpzWIDT']
     msg = ''
-    times = []
     params = event.get('queryStringParameters')
     mode = params.get('mode')
     if mode == '1':
         msg = '1'
-        driver = GraphDatabase.driver(uri, auth=(user, password))
-        driver.verify_connectivity()
-        with driver.session() as session:
-            for playlist in playlist_ids:
-                current_playlist = Playlist(playlist)
-                st = time.time()
-                print(current_playlist.get_playlist_items())
-                for track in current_playlist.get_playlist_items():
-                    try:
-                        session.execute_write(current_playlist.create_track, track)
-                        print(f"Track {track['track_name']} write success!")
-                    except Exception as e:
-                        print(e)
-                et = time.time()
-                times.append(et-st)
-            session.close()
-            driver.close()
+        all_new_tracks = []
+        with GraphDatabase.driver(uri, auth=(user, password)) as driver:
+            with driver.session() as session:
+                for playlist in playlist_ids:
+                    current = Playlist(playlist)
+                    before = [tuple(song.values()) for song in session.execute_read(current.get_tracks)]
+                    for track in current.get_playlist_items():
+                        try:
+                            session.execute_write(current.create_track, track)
+                            print(f"Track {track['track_name']} write success!")
+                        except Exception as e:
+                            raise e
+                    new = [item for item in [tuple(song.values()) for song in session.execute_read(current.get_tracks)] if item not in before]
+                    if new != []:
+                        all_new_tracks.append(new)
+        print(all_new_tracks)
     elif mode == "2":
         msg = '2'
     return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": f"{msg}, {times}"
+                "message": f"{msg}"
         }),
         }
 
@@ -114,14 +111,26 @@ class Playlist(Share):
     def create_track(self, tx, track):
         result = tx.run(
 """
+MERGE (p:Playlist {playlist_id: $playlist_id})
 MERGE (t:Track {track_name: $track_name, track_id: $track_id})
 WITH $artist_list as x
 UNWIND x as l
 MERGE (a:Artist {artist_name: l.artist_name, artist_id: l.artist_id})
 WITH l
-MATCH (a:Artist {artist_id: l.artist_id}), (t:Track {track_id: $track_id})
+MATCH (a:Artist {artist_id: l.artist_id}), (t:Track {track_id: $track_id}), (p:Playlist {playlist_id: $playlist_id})
 MERGE (t)-[:SONG_OF]->(a)
+MERGE (t)-[:APPEARS_ON]->(p)
 """,
-    track_id=track['track_id'], track_name=track['track_name'], artist_list=track['artists']
+    track_id=track['track_id'], track_name=track['track_name'], artist_list=track['artists'], playlist_id=self.id
     )
         return result
+    
+    def get_tracks(self, tx):
+        result = tx.run("""
+MATCH (t:Track)-[r:APPEARS_ON]-(p:Playlist {playlist_id: $playlist_id})
+return t, r.playlist_id
+    """,
+playlist_id=self.id
+    )
+
+        return [record["t"] for record in result]
