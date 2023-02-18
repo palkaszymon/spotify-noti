@@ -2,7 +2,6 @@ import json
 import base64
 from requests import get, post
 from neo4j import GraphDatabase
-import time
 import boto3
 from botocore.exceptions import ClientError
 
@@ -48,6 +47,10 @@ def lambda_handler(event, context):
                                 print(f"Track {track['track_name']} already exists!")
                         except Exception as e:
                             print(e)
+            lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
+            payload = {'message': 'Siema eniu'}
+            response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
+            InvocationType="Event", Payload=json.dumps(payload))
     elif mode == "2":
         msg = '2'
     return {

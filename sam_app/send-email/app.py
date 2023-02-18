@@ -22,9 +22,9 @@ def get_secret(secret_name):
         raise e
     return json.loads(get_secret_value_response['SecretString'])
 
-def send_email(email_to, course_name, amount, date, location):
+def send_email(email_to):
     mail_template=Template(filename='mail_template.html', input_encoding='UTF-8')
-    html = mail_template.render_unicode('tu beda zmienne')
+    html = mail_template.render_unicode(x='tu beda zmienne')
     email_message = MIMEMultipart()
     email_message['From'], email_message['To'], email_message['Subject'] = email_from, email_to, "PLACEHOLDER"
     print(email_message)
@@ -35,12 +35,11 @@ def send_email(email_to, course_name, amount, date, location):
         server.sendmail(email_from, email_to, email_message.as_string())
 
 def lambda_handler(event, context):
-    msg = ''
-    params = event.get('queryStringParameters')
-    send_email()
+    print(event)
+    send_email('')
     return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": f"{msg}"
+                "message": "Success!"
         }),
         }
