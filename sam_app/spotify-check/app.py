@@ -4,6 +4,7 @@ from requests import get, post
 from neo4j import GraphDatabase
 import boto3
 from botocore.exceptions import ClientError
+import datetime
 
 def get_secret(secret_name):
     region_name = "eu-central-1"
@@ -74,8 +75,11 @@ class Share():
         result = post(url, headers=headers, data=data)
         return json.loads(result.content)['access_token']
 
-    def get_response_data(self):
-        url = f"https://api.spotify.com/v1/playlists/{self.id}?market=PL"
+    def get_response_data(self, type):
+        if type == 'playlist':
+            url = f"https://api.spotify.com/v1/playlists/{self.id}?market=PL"
+        elif type == 'artist':
+            url = f"https://api.spotify.com/v1/artists/{self.id}/albums?include_groups=album%2Csingle%2Cappears_on&market=PL"
         response = get(url, data=None, headers={
             "Accept": "application/json",
             "Content-Type": "application/json",
@@ -86,31 +90,9 @@ class Share():
     def get_track_name(self, id):
         return str([item['track']['name']for item in self.response['tracks']['items']if item['track']['id'] == id][0])
 
-    def get_artist_list(self, track_id):
-        return [{'artist_name': item['track']['artists'][i]['name'], 'artist_id': item['track']['artists'][i]['id']} for item in self.response['tracks']['items'] for i in range(len(item['track']['artists'])) if item['track']['id'] == track_id]  
-
-class Playlist(Share):   
-    def __init__(self, id):
-        self.id=id
-        self.response = self.get_response_data()
-
-    def get_playlist_name(self):
-        return self.response['name']
-
-    def get_playlist_items(self):
-        track_list = [{'track_id': item['track']['id'], 'track_name': item['track']['name'], 'artists': self.get_artist_list(item['track']['id'])} for item in self.response['tracks']['items']]
-        return track_list
-
-    def playlist_new_songs(self):
-        old_list = json.load()
-        new_list = self.get_playlist_items()
-        return [song for song in new_list if song not in old_list]
-
-    def save_playlist_songs(self):
-        # will be database (maybe neo4j) for now in file
-        pass
     
-    # <----------NEO4J DATABASE FUNCTIONS---------->
+    
+# <----------NEO4J DATABASE FUNCTIONS---------->
     def create_track(self, tx, track):
         result = tx.run(
 """
@@ -137,4 +119,43 @@ return t, r.playlist_id
 playlist_id=self.id
     )
 
-        return [record["t"] for record in result]
+        return [record["t"] for record in result] 
+
+class Playlist(Share):   
+    def __init__(self, id):
+        self.id=id
+        self.response = self.get_response_data('playlist')
+
+    def get_artist_list(self, track_id):
+        return [{'artist_name': item['track']['artists'][i]['name'], 'artist_id': item['track']['artists'][i]['id']} for item in self.response['tracks']['items'] for i in range(len(item['track']['artists'])) if item['track']['id'] == track_id]
+
+    def get_playlist_name(self):
+        return self.response['name']
+
+    def get_playlist_items(self):
+        track_list = [{'track_id': item['track']['id'], 'track_name': item['track']['name'], 'artists': self.get_artist_list(item['track']['id'])} for item in self.response['tracks']['items']]
+        return track_list
+
+    def playlist_new_songs(self):
+        old_list = json.load()
+        new_list = self.get_playlist_items()
+        return [song for song in new_list if song not in old_list]
+
+    def save_playlist_songs(self):
+        # will be database (maybe neo4j) for now in file
+        pass
+
+class Artist(Share):
+    def __init__(self, id):
+        self.id=id
+        self.response = self.get_response_data('artist')
+    
+    def get_artist_list(self, track_id):
+        return [{'artist_name': item['artists'][i]['name'], 'artist_id': item['artists'][i]['id']} for item in self.response['items'] for i in range(len(item['artists'])) if item['id'] == track_id]
+    
+    def get_latest_albums(self):
+        return [{'album_id': item['id'], 'album_name': item['name'], 'artists': self.get_artist_list(item['id']), 'release': item['release_date']} for item in self.response['items']]
+    
+    def filter_albums(self):
+        albums = sorted(self.get_latest_albums(), key = lambda x: datetime.datetime.strptime(x['release'], '%Y-%m-%d'), reverse=True)
+        return [albums[i] for i in range(len(albums)-1) if albums[i]['album_name'] != albums[i+1]['album_name']][:3]

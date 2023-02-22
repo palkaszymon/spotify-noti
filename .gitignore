@@ -4,4 +4,4 @@ __pycache__
 json/
 sam_app/.aws-sam
 .env
-neo.py
+testingfiles
