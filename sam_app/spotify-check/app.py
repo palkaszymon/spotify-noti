@@ -25,21 +25,24 @@ SPOTIFY_CREDS, NEO4J_CREDS = get_secret('spotify-api-creds'), get_secret('neo4j-
 client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SECRET']
 uri, user, password = NEO4J_CREDS['NEO4J_URI'], NEO4J_CREDS['NEO4J_USERNAME'], NEO4J_CREDS['NEO4J_PASSWORD']
 
+artist_ids = ['1URnnhqYAYcrqrcwql10ft', '20qISvAhX20dpIbOOzGK3q', '7EQ0qTo7fWT7DPxmxtSYEc', '496nklFjflGjJOhhfhH2Nc']
+playlist_ids = ['4ul6VwbC9q89M3FAs8fOdb', '5dtDRRVVYQSnBsKNAzlDLo', '5037GRVTAdYiQvGRpzWIDT', '69n8hWNmelZfJymzUL6gAl']
+
 def lambda_handler(event, context):
-    artist_ids = ['1URnnhqYAYcrqrcwql10ft', '20qISvAhX20dpIbOOzGK3q', '7EQ0qTo7fWT7DPxmxtSYEc', '496nklFjflGjJOhhfhH2Nc']
     msg = ''
     params = event.get('queryStringParameters')
     mode = params.get('mode')
-    if mode == '1':
-        msg = '1'
-        new = []
-        Artist.neo_write(artist_ids, firstrun=True)
+    if mode == 'artist':
+        firstrun = eval(params.get('f'))
+        msg = 'artist'
+        Artist.neo_write(Artist, firstrun)
         # lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
         # payload = {'message': 'Siema eniu'}
         # response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
         # InvocationType="Event", Payload=json.dumps(payload))
-    elif mode == "2":
-        msg = '2'
+    elif mode == "playlist":
+        msg = 'playlist'
+        Artist.neo_write(Playlist)
     return {
             "statusCode": 200,
             "body": json.dumps({
@@ -72,6 +75,28 @@ class Share():
             "Authorization": f"Bearer {self.get_oauth_token()}"
         })
         return response.json()
+    
+    def neo_write(object, firstrun=False):
+        new = []
+        if object == Playlist:
+            id_list = playlist_ids
+        else:
+            id_list = artist_ids
+        with GraphDatabase.driver(uri, auth=(user, password)) as driver:
+                    with driver.session() as session:
+                        for id in id_list:
+                            current = object(id)
+                            for item in current.get_final_items():
+                                try:
+                                    tx = session.execute_write(current.create_item, item)
+                                    if firstrun == False:
+                                        check = tx[1].counters.nodes_created
+                                        if check != 0:
+                                            new.append(item)
+                                            if object == Artist:
+                                                session.execute_write(current.delete_oldest, item)
+                                except Exception as e:
+                                    print(e)
 
 class Playlist(Share):   
     def __init__(self, id):
@@ -84,24 +109,24 @@ class Playlist(Share):
     def get_playlist_name(self):
         return self.response['name']
 
-    def get_items(self):
-        track_list = [{'track_id': item['track']['id'], 'track_name': item['track']['name'], 'artists': self.get_artist_list(item['track']['id'])} for item in self.response['tracks']['items']]
+    def get_final_items(self):
+        track_list = [{'id': item['track']['id'], 'name': item['track']['name'], 'artists': self.get_artist_list(item['track']['id'])} for item in self.response['tracks']['items']]
         return track_list
 
-    def create_track(self, tx, track):
+    def create_item(self, tx, track):
         result = tx.run(
 """
 MERGE (p:Playlist {playlist_id: $playlist_id})
-MERGE (t:Track {track_name: $track_name, track_id: $track_id})
+MERGE (t:Track {name: $name, id: $id})
 WITH $artist_list as x
 UNWIND x as l
 MERGE (a:Artist {artist_name: l.artist_name, artist_id: l.artist_id})
 WITH l
-MATCH (a:Artist {artist_id: l.artist_id}), (t:Track {track_id: $track_id}), (p:Playlist {playlist_id: $playlist_id})
+MATCH (a:Artist {artist_id: l.artist_id}), (t:Track {id: $id}), (p:Playlist {playlist_id: $playlist_id})
 MERGE (t)-[:SONG_OF]->(a)
 MERGE (t)-[:APPEARS_ON]->(p)
 """,
-    track_id=track['track_id'], track_name=track['track_name'], artist_list=track['artists'], playlist_id=self.id
+    id=track['id'], name=track['name'], artist_list=track['artists'], playlist_id=self.id
     )
         summary = result.consume()
         return result, summary
@@ -115,24 +140,25 @@ class Artist(Share):
         return [{'artist_name': item['artists'][i]['name'], 'artist_id': item['artists'][i]['id']} for item in self.response['items'] for i in range(len(item['artists'])) if item['id'] == track_id]
     
     def get_items(self):
-        return [{'album_id': item['id'], 'album_name': item['name'], 'album_type': item['album_type'], 'artists': self.get_artist_list(item['id']), 'release_date': item['release_date']} for item in self.response['items']]
+        return [{'id': item['id'], 'name': item['name'], 'type': item['album_type'], 'artists': self.get_artist_list(item['id']), 'release_date': item['release_date']} for item in self.response['items']]
     
-    def get_filtered_albums(self):
+    # Sorts the albums by release date descending, and returns the newest 3
+    def get_final_items(self):
         albums = sorted(self.get_items(), key = lambda x: datetime.datetime.strptime(x['release_date'], '%Y-%m-%d'), reverse=True)
-        return [albums[i] for i in range(len(albums)-1) if albums[i]['album_name'] != albums[i+1]['album_name']][:3]
+        return [albums[i] for i in range(len(albums)-1) if albums[i]['name'] != albums[i+1]['name']][:3]
     
-    def create_album(self, tx, album):
+    def create_item(self, tx, album):
         result = tx.run(
 """
-MERGE (al:Album {album_name: $album_name, album_type: $album_type, release_date: $release_date, album_id: $album_id})
+MERGE (al:Album {name: $name, type: $type, release_date: $release_date, id: $id})
 WITH $artist_list as x
 UNWIND x as l
 MERGE (a:Artist {artist_name: l.artist_name, artist_id: l.artist_id})
 WITH l
-MATCH (a:Artist {artist_id: l.artist_id}), (al:Album {album_id: $album_id})
+MATCH (a:Artist {artist_id: l.artist_id}), (al:Album {id: $id})
 MERGE (al)-[:ALBUM_OF]->(a)
 """,
-    album_name=album['album_name'], album_type=album['album_type'], release_date= album['release_date'], album_id=album['album_id'], artist_list=album['artists']
+    name=album['name'], type=album['type'], release_date= album['release_date'], id=album['id'], artist_list=album['artists']
     )
         summary = result.consume()
         return result, summary
@@ -149,23 +175,3 @@ DETACH DELETE al
     )
         return result
     
-    def neo_write(artist_ids, firstrun=False):
-        new = []
-        with GraphDatabase.driver(uri, auth=(user, password)) as driver:
-                    with driver.session() as session:
-                        for id in artist_ids:
-                            current = Artist(id)
-                            for album in current.get_filtered_albums():
-                                try:
-                                    print(album)
-                                    tx = session.execute_write(current.create_album, album)
-                                    if firstrun == False:
-                                        check = tx[1].counters.nodes_created
-                                        if check != 0:
-                                            new.append(album)
-                                            session.execute_write(current.delete_oldest, album)
-                                            print(f"Album {album['album_name']} write success!")
-                                        else:
-                                            print(f"Album {album['album_name']} already exists!")
-                                except Exception as e:
-                                    print(e)
