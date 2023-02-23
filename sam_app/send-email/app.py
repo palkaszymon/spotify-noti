@@ -22,9 +22,9 @@ def get_secret(secret_name):
         raise e
     return json.loads(get_secret_value_response['SecretString'])
 
-def send_email(email_to):
-    mail_template=Template(filename='mail_template.html', input_encoding='UTF-8')
-    html = mail_template.render_unicode(x='tu beda zmienne')
+def send_email(email_to, new_tracks):
+    mail_template=Template(filename='mail_template.html',input_encoding='utf-8', output_encoding='utf-8', encoding_errors='replace')
+    html = mail_template.render_unicode(x=new_tracks)
     email_message = MIMEMultipart()
     email_message['From'], email_message['To'], email_message['Subject'] = email_from, email_to, "PLACEHOLDER"
     print(email_message)

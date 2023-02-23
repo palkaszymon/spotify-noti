@@ -174,4 +174,3 @@ DETACH DELETE al
     artist_id=album['artists'][0]['artist_id']
     )
         return result
-    

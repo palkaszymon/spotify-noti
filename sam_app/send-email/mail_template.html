@@ -1,13 +1,12 @@
+## -*- coding: utf-8 -*-
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <style>
         @import url('https://fonts.googleapis.com/css?family=Oswald:200,300,400,500,600,700');
-
         body {
             font-family: 'Oswald', Verdana;
             font-size: 19px;
@@ -15,51 +14,49 @@
             margin: 0 auto;
             padding: 3%
         }
-
         img {
             max-width: 100%
         }
-
         header {
             width: 98%
         }
-
         #logo {
             max-width: 200px;
             margin: 3% 0 3% 3%;
             float: left
         }
-
         #header {
             background-color: #000
         }
-
-        h1,
-        p {
+        h1, p {
             margin-right: 2%;
             margin-left: 2%;
             margin-top: 4%;
             margin-bottom: 4%
         }
-
         h1 {
             color: #eb4c1c
         }
 
+        h2{
+            margin-right: 2%;
+            margin-left: 2%;
+        }
         #banner {
             overflow: hidden;
             background-color: #000
         }
-
         a {
             text-decoration: none;
             background-color: none;
             color: #0484cc
         }
-
         a:hover {
             color: #3c68d0;
             transition: all ease .4s
+        }
+        ul {
+            list-style-type: none;
         }
     </style>
 </head>
@@ -74,18 +71,27 @@
         </header>
     </div>
     <div class="one-col">
-        <h1>Hey! There are new songs/albums from your favorite artists to checkout!</h1>
-
-        <p>
-            Lorem ipsum dolor sit, amet consectetur adipisicing elit. Iure non
-            exercitationem maxime nostrum eaque eos quaerat libero explicabo id?
-        </p>
-
-        <p>
-            Lorem ipsum dolor sit, amet consectetur adipisicing elit. Iure non
-            exercitationem maxime nostrum eaque eos quaerat libero explicabo id?
-        </p>
+        <h1>Hey! There is new music from your favorite artists to checkout!</h1>
+        % if any(d['type'] == 'album' for d in x):
+        <h2>Albums</h2>
+        <ul>
+            % for item in x:
+                % if item['type'] == 'album':
+            <li>${', '.join([artist['artist_name'] for artist in item['artists']])} - ${item['name']}</li>
+                % endif
+            % endfor
+        </ul>
+        % endif
+        % if any(d['type'] == 'single' for d in x):
+        <h2>Singles</h2>
+        <ul>
+            % for item in x:
+                % if item['type'] == 'single':
+            <li>${item['artists'][0]['artist_name']} - ${item['name']}</li>
+                % endif
+            % endfor
+        </ul>
+        % endif
     </div>
 </body>
-
 </html>
