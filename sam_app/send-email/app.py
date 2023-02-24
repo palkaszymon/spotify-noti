@@ -35,8 +35,9 @@ def send_email(email_to, new_tracks):
         server.sendmail(email_from, email_to, email_message.as_string())
 
 def lambda_handler(event, context):
-    print(event)
-    send_email('')
+    new_tracks = json.loads(event['message'])
+    if new_tracks != []:
+        send_email('', new_tracks)
     return {
             "statusCode": 200,
             "body": json.dumps({

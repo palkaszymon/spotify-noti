@@ -25,7 +25,7 @@ SPOTIFY_CREDS, NEO4J_CREDS = get_secret('spotify-api-creds'), get_secret('neo4j-
 client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SECRET']
 uri, user, password = NEO4J_CREDS['NEO4J_URI'], NEO4J_CREDS['NEO4J_USERNAME'], NEO4J_CREDS['NEO4J_PASSWORD']
 
-artist_ids = ['1URnnhqYAYcrqrcwql10ft', '20qISvAhX20dpIbOOzGK3q', '7EQ0qTo7fWT7DPxmxtSYEc', '496nklFjflGjJOhhfhH2Nc']
+artist_ids = ['3qiHUAX7zY4Qnjx8TNUzVx', '3wyVrVrFCkukjdVIdirGVY', '21dooacK2WGBB5amYvKyfM', '4Gso3d4CscCijv0lmajZWs', '4xRYI6VqpkE3UwrDrAZL8L', '4Ga1P7PMIsmqEZqhYZQgDo', '2sF5nNXnrrsCPZlt8ZpyGd']
 playlist_ids = ['4ul6VwbC9q89M3FAs8fOdb', '5dtDRRVVYQSnBsKNAzlDLo', '5037GRVTAdYiQvGRpzWIDT', '69n8hWNmelZfJymzUL6gAl']
 
 def lambda_handler(event, context):
@@ -35,11 +35,10 @@ def lambda_handler(event, context):
     if mode == 'artist':
         firstrun = eval(params.get('f'))
         msg = 'artist'
-        Artist.neo_write(Artist, firstrun)
-        # lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
-        # payload = {'message': 'Siema eniu'}
-        # response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
-        # InvocationType="Event", Payload=json.dumps(payload))
+        payload = Artist.neo_write(Artist, firstrun)
+        if payload != []:
+            invoke_email_lambda(payload)
+            print('lambda invoked')
     elif mode == "playlist":
         msg = 'playlist'
         Artist.neo_write(Playlist)
@@ -49,6 +48,12 @@ def lambda_handler(event, context):
                 "message": f"{msg}"
         }),
         }
+
+def invoke_email_lambda(new_tracks):
+    lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
+    payload = {'message': json.dumps(new_tracks)}
+    response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
+    InvocationType="Event", Payload=json.dumps(payload))
 
 class Share():
     def get_oauth_token(self):
@@ -97,6 +102,7 @@ class Share():
                                                 session.execute_write(current.delete_oldest, item)
                                 except Exception as e:
                                     print(e)
+        return new
 
 class Playlist(Share):   
     def __init__(self, id):
