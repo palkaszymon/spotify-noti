@@ -77,7 +77,7 @@
         <ul>
             % for item in x:
                 % if item['type'] == 'album':
-            <li>${', '.join([artist['artist_name'] for artist in item['artists']])} - ${item['name']}</li>
+            <li><strong>${', '.join([artist['artist_name'] for artist in item['artists']])}</strong> - ${item['name']}</li>
                 % endif
             % endfor
         </ul>
@@ -87,7 +87,7 @@
         <ul>
             % for item in x:
                 % if item['type'] == 'single':
-            <li>${item['artists'][0]['artist_name']} - ${item['name']}</li>
+            <li><strong>${item['artists'][0]['artist_name']}</strong> - ${item['name']}</li>
                 % endif
             % endfor
         </ul>
