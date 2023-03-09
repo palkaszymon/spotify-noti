@@ -1,23 +1,7 @@
-from classes import Artist, Playlist
+from utils.Classes import Artist, Playlist
+from utils.AwsFunctions import get_secret, invoke_email_lambda
 import json
 from neo4j import GraphDatabase
-import boto3
-from botocore.exceptions import ClientError
-
-def get_secret(secret_name):
-    region_name = "eu-central-1"
-    session = boto3.session.Session()
-    client = session.client(
-        service_name='secretsmanager',
-        region_name=region_name
-    )
-    try:
-        get_secret_value_response = client.get_secret_value(
-            SecretId=secret_name
-        )
-    except ClientError as e:
-        raise e
-    return json.loads(get_secret_value_response['SecretString'])
 
 NEO4J_CREDS = get_secret('neo4j-creds')
 uri, user, password = NEO4J_CREDS['NEO4J_URI'], NEO4J_CREDS['NEO4J_USERNAME'], NEO4J_CREDS['NEO4J_PASSWORD']
@@ -29,25 +13,42 @@ def lambda_handler(event, context):
     msg = ''
     params = event.get('queryStringParameters')
     mode = params.get('mode')
+    id_list = get_id_list(mode)
     if mode == 'artist':
-        firstrun = eval(params.get('f'))
         msg = 'artist'
-        payload = Artist.neo_write(Artist, firstrun)
-        if payload != []:
-            invoke_email_lambda(payload)
-            print('lambda invoked')
+        payload = Artist.neo_write(Artist, id_list)
+        # if payload != []:
+        #     invoke_email_lambda(payload)
+        #     print('lambda invoked')
     elif mode == "playlist":
         msg = 'playlist'
-        Artist.neo_write(Playlist)
+        payload = Artist.neo_write(Playlist, id_list)
     return {
             "statusCode": 200,
             "body": json.dumps({
-                "message": f"{msg}"
+                "message": f"{payload}"
         }),
         }
 
-def invoke_email_lambda(new_tracks):
-    lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
-    payload = {'message': json.dumps(new_tracks)}
-    response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
-    InvocationType="Event", Payload=json.dumps(payload))
+def neo_write(object, ids):
+    new = []
+    id_list = ids
+    with driver.session() as session:
+        for id in id_list:
+            current = object(id)
+            for item in current.get_final_items():
+                try:
+                    tx = session.execute_write(current.create_item, item)
+                    check = tx[1].counters.nodes_created
+                    if check != 0:
+                        new.append(item)
+                except Exception as e:
+                    print(e)
+    return new
+
+def get_id_list(mode):
+    with driver.session() as session:
+        if mode == 'artist':
+            return session.execute_read(Artist.get_id_list)
+        elif mode == "playlist":
+            return session.execute_read(Playlist.get_id_list)
