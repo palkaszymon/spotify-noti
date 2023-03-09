@@ -3,6 +3,7 @@ import json
 from base64 import b64encode
 from utils.AwsFunctions import get_secret
 from datetime import datetime, date
+from collections import OrderedDict 
 
 SPOTIFY_CREDS = get_secret('spotify-api-creds')
 client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SECRET']
@@ -135,6 +136,28 @@ set a.check=True
 return a.artist_id, check
 """)
         return [record.data() for record in result]
+    
+    def get_artist_users(tx, artist_id):
+        result = tx.run(
+"""
+MATCH (a:Artist {artist_id: $artist_id})<--(u:User)
+RETURN
+"""
+        )
+        return result
+    
+    @staticmethod
+    def get_artist_emails(tx, albumlist):
+        artist_ids = list(OrderedDict.fromkeys([album['artists'][0]['artist_id'] for album in albumlist]))
+        result = tx.run(
+"""
+MATCH (u:User)-[:FOLLOWS]->(a:Artist) where a.artist_id in $artist_ids
+RETURN a.artist_id as artist_id, collect(u.email) as emails
+""",
+    artist_ids = artist_ids
+)
+        emails = [record.data() for record in result]
+        return emails
 
     @staticmethod
     def check_date(date_text):
