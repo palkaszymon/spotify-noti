@@ -13,16 +13,16 @@ def lambda_handler(event, context):
     msg = ''
     params = event.get('queryStringParameters')
     mode = params.get('mode')
-    id_list = get_id_list(mode)
+    id_list = get_artist_check(mode)
     if mode == 'artist':
         msg = 'artist'
-        payload = Artist.neo_write(Artist, id_list)
+        payload = neo_write(Artist, id_list)
         # if payload != []:
         #     invoke_email_lambda(payload)
         #     print('lambda invoked')
     elif mode == "playlist":
         msg = 'playlist'
-        payload = Artist.neo_write(Playlist, id_list)
+        payload = neo_write(Playlist, id_list)
     return {
             "statusCode": 200,
             "body": json.dumps({
@@ -35,20 +35,20 @@ def neo_write(object, ids):
     id_list = ids
     with driver.session() as session:
         for id in id_list:
-            current = object(id)
+            current = object(id['a.artist_id'])
             for item in current.get_final_items():
                 try:
                     tx = session.execute_write(current.create_item, item)
-                    check = tx[1].counters.nodes_created
-                    if check != 0:
+                    nodes_created = tx[1].counters.nodes_created
+                    if nodes_created != 0 and id['check']:
                         new.append(item)
                 except Exception as e:
                     print(e)
     return new
 
-def get_id_list(mode):
+def get_artist_check(mode):
     with driver.session() as session:
         if mode == 'artist':
-            return session.execute_read(Artist.get_id_list)
+            return session.execute_write(Artist.get_id_list)
         elif mode == "playlist":
             return session.execute_read(Playlist.get_id_list)

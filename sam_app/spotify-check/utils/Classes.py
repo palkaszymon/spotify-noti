@@ -129,10 +129,12 @@ DETACH DELETE al
     def get_id_list(tx):
         result = tx.run(
 """
-MATCH (a:Artist)--(u:User)
-RETURN a.artist_id
+MATCH (a:Artist)<-[:FOLLOWS]-(u:User)
+with distinct a, a.check as check
+set a.check=True
+return a.artist_id, check
 """)
-        return [record.value() for record in result]
+        return [record.data() for record in result]
 
     @staticmethod
     def check_date(date_text):
