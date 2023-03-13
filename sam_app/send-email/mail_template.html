@@ -1,6 +1,7 @@
 ## -*- coding: utf-8 -*-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -37,8 +38,7 @@
         h1 {
             color: #eb4c1c
         }
-
-        h2{
+        h2 {
             margin-right: 2%;
             margin-left: 2%;
         }
@@ -72,25 +72,27 @@
     </div>
     <div class="one-col">
         <h1>Hey! There is new music from your favorite artists to checkout!</h1>
-        % if any(d['type'] == 'album' for d in x):
+        % if any(d['album']['type'] == 'album' for d in x['albumlist']):
         <h2>Albums</h2>
         <ul>
-            % for item in x:
-                % if item['type'] == 'album':
-            <li><strong>${', '.join([artist['artist_name'] for artist in item['artists']])}</strong> - ${item['name']}</li>
+            % for item in x['albumlist']:
+                % if item['album']['type'] == 'album':
+                    <li><strong>${', '.join([artist['artist_name'] for artist in item['album']['artists']])}</strong> -
+                        ${item['album']['name']}</li>
                 % endif
             % endfor
         </ul>
         % endif
-        % if any(d['type'] == 'single' for d in x):
-        <h2>Singles</h2>
-        <ul>
-            % for item in x:
-                % if item['type'] == 'single':
-            <li><strong>${item['artists'][0]['artist_name']}</strong> - ${item['name']}</li>
+        % if any(d['album']['type'] == 'single' for d in x['albumlist']):
+            <h2>Singles</h2>
+            <ul>
+                % for item in x['albumlist']:
+                % if item['album']['type'] == 'single':
+                <li><strong>${', '.join([artist['artist_name'] for artist in item['album']['artists']])}</strong> -
+                    ${item['album']['name']}</li>
                 % endif
-            % endfor
-        </ul>
+                % endfor
+            </ul>
         % endif
     </div>
 </body>

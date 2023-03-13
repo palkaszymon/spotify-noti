@@ -11,7 +11,8 @@ email_pass = ''
 def lambda_handler(event, context):
     new_tracks = json.loads(event['message'])
     if new_tracks != []:
-        send_email('', new_tracks)
+        for user in new_tracks:
+            send_email(user['email'], user['albumlist'])
     return {
             "statusCode": 200,
             "body": json.dumps({
