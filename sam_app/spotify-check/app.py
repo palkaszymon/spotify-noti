@@ -16,9 +16,9 @@ def lambda_handler(event, context):
     print(id_list)
     if mode == 'artist':
         payload = neo_write(Artist, id_list)
-        # if payload != []:
-        #     invoke_email_lambda(payload)
-        #     print('lambda invoked')
+        if payload != []:
+            invoke_email_lambda(payload)
+            print('lambda invoked')
     elif mode == "playlist":
         payload = neo_write(Playlist, id_list)
     return {

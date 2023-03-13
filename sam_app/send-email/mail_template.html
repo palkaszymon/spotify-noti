@@ -72,10 +72,10 @@
     </div>
     <div class="one-col">
         <h1>Hey! There is new music from your favorite artists to checkout!</h1>
-        % if any(d['album']['type'] == 'album' for d in x['albumlist']):
+        % if any(d['album']['type'] == 'album' for d in x):
         <h2>Albums</h2>
         <ul>
-            % for item in x['albumlist']:
+            % for item in x:
                 % if item['album']['type'] == 'album':
                     <li><strong>${', '.join([artist['artist_name'] for artist in item['album']['artists']])}</strong> -
                         ${item['album']['name']}</li>
@@ -83,10 +83,10 @@
             % endfor
         </ul>
         % endif
-        % if any(d['album']['type'] == 'single' for d in x['albumlist']):
+        % if any(d['album']['type'] == 'single' for d in x):
             <h2>Singles</h2>
             <ul>
-                % for item in x['albumlist']:
+                % for item in x:
                 % if item['album']['type'] == 'single':
                 <li><strong>${', '.join([artist['artist_name'] for artist in item['album']['artists']])}</strong> -
                     ${item['album']['name']}</li>
