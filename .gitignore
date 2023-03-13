@@ -1,7 +1,5 @@
 .venv
-idea_code_storage.py
 __pycache__
-json/
 sam_app/.aws-sam
 .env
 testingfiles
