@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "notifymusic"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-q4fsfa5yi2lk"
+s3_prefix = "notifymusic"
+region = "eu-central-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+image_repositories = []

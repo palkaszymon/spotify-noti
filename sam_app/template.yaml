@@ -7,7 +7,7 @@ Description: >
 
 Globals:
   Function:
-    Timeout: 200
+    Timeout: 900
     MemorySize: 128
     Runtime: python3.9
     Architectures:

@@ -1,2 +1,3 @@
 requests
 neo4j
+tenacity

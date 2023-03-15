@@ -20,5 +20,5 @@ def get_secret(secret_name):
 def invoke_email_lambda(new_tracks):
     lnvoke_lam = boto3.client("lambda", region_name='eu-central-1')
     payload = {'message': json.dumps(new_tracks)}
-    response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:sam-app-SendEmailFunction-3UgqZ4QN5w68",
+    response = lnvoke_lam.invoke(FunctionName="arn:aws:lambda:eu-central-1:529336170453:function:notifymusic-SendEmailFunction-xET28YEP0G2t",
     InvocationType="Event", Payload=json.dumps(payload))

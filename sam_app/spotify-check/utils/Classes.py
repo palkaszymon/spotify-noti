@@ -3,28 +3,31 @@ import json
 from base64 import b64encode
 from utils.AwsFunctions import get_secret
 from datetime import datetime, date
-from collections import OrderedDict 
+from collections import OrderedDict
+from tenacity import retry, stop_after_attempt
 
 SPOTIFY_CREDS = get_secret('spotify-api-creds')
 client_id, client_secret = SPOTIFY_CREDS['CLIENT_ID'], SPOTIFY_CREDS['CLIENT_SECRET']
 
+def get_oauth_token():
+    auth_string = client_id + ':' + client_secret
+    auth_b64 = str(b64encode(auth_string.encode('UTF-8')), 'UTF-8')
+    url = 'https://accounts.spotify.com/api/token'
+    headers = {
+        "Authorization": "Basic " + auth_b64,
+        "Content-Type" : "application/x-www-form-urlencoded"
+    }
+    data = {"grant_type": "client_credentials"}
+    result = post(url, headers=headers, data=data)
+    return json.loads(result.content)['access_token']
+
+oauth = get_oauth_token()
+
 class Share():
+    @retry(stop=stop_after_attempt(3))
     def __init__(self, id):
         self.id=id
         self.response = self.get_response_data()
-
-    def get_oauth_token(self):
-        auth_string = client_id + ':' + client_secret
-        auth_b64 = str(b64encode(auth_string.encode('UTF-8')), 'UTF-8')
-        url = 'https://accounts.spotify.com/api/token'
-        headers = {
-            "Authorization": "Basic " + auth_b64,
-            "Content-Type" : "application/x-www-form-urlencoded"
-        }
-        data = {"grant_type": "client_credentials"}
-
-        result = post(url, headers=headers, data=data)
-        return json.loads(result.content)['access_token']
 
     def get_response_data(self):
         mode = type(self)
@@ -35,9 +38,9 @@ class Share():
         response = get(url, data=None, headers={
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.get_oauth_token()}"
-        })
-        return response.json()
+            "Authorization": f"Bearer {oauth}"
+        }).json()
+        return response
     
 class Playlist(Share):
     def get_artist_list(self, track_id):
@@ -82,8 +85,11 @@ class Artist(Share):
         return [{'artist_name': item['artists'][i]['name'], 'artist_id': item['artists'][i]['id']} for item in self.response['items'] for i in range(len(item['artists'])) if item['id'] == track_id]
     
     def get_items(self):
-        return [{'id': item['id'], 'name': item['name'], 'type': item['album_type'], 'artists': self.get_artist_list(item['id']), 'release_date': item['release_date']} for item in self.response['items']]
-    
+        try:
+            return [{'id': item['id'], 'name': item['name'], 'type': item['album_type'], 'artists': self.get_artist_list(item['id']), 'release_date': item['release_date']} for item in self.response['items']]
+        except KeyError:
+            print(self.response, self.id)
+            
     # Sorts the albums by release date descending, and returns the newest 3
     def get_final_items(self):
         albums = sorted(self.get_items(), key = lambda x: datetime.strptime(self.check_date(x['release_date']), '%Y-%m-%d'), reverse=True)
@@ -130,7 +136,7 @@ DETACH DELETE al
     def get_id_list(tx):
         result = tx.run(
 """
-MATCH (a:Artist)<-[:FOLLOWS]-(u:User)
+MATCH (a:Artist)<-[:FOLLOWS]-(User)
 with distinct a, a.check as check
 set a.check=True
 return a.artist_id, check
