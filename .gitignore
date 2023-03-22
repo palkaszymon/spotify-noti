@@ -3,3 +3,4 @@ __pycache__
 sam_app/.aws-sam
 .env
 testingfiles
+logo.png
