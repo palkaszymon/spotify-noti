@@ -2,6 +2,7 @@ import json, boto3, smtplib, ssl
 from botocore.exceptions import ClientError
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from mako.template import Template
 from itertools import groupby
 
@@ -50,10 +51,10 @@ def parse_to_send(data):
     return [{'email': key, 'albumlist': list(value)} for key, value in groupby(split, key=key)]
 
 def send_email(email_to, new_tracks):
-    mail_template=Template(filename='mail_template.html',input_encoding='utf-8', output_encoding='utf-8', encoding_errors='replace')
+    mail_template=Template(filename=r'C:\Users\Szymon\Desktop\szkola\programming\spotify-noti\sam_app\send-email\mail_template.html',input_encoding='utf-8', output_encoding='utf-8', encoding_errors='replace')
     html = mail_template.render_unicode(x=new_tracks)
     email_message = MIMEMultipart()
-    email_message['From'], email_message['To'], email_message['Subject'] = email_from, email_to, "PLACEHOLDER"
+    email_message['From'], email_message['To'], email_message['Subject'] = formataddr(('Notifymusic', email_from)), email_to, "NEW MUSIC TODAY!"
     print(email_message)
     email_message.attach(MIMEText(html, "html"))
     context = ssl.create_default_context()
